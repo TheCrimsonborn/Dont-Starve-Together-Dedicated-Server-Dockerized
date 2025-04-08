@@ -1,59 +1,54 @@
-# docker-compose.yml
-version: '3.8'
-
 services:
   dst-master:
-    build: . # Builds the image from the Dockerfile in the current directory
-    container_name: dst_master_server
-    user: steam # Runs the container with this user (must match the user in Dockerfile)
-    restart: unless-stopped
-    ports:
-      - "10999:10999/udp" # Host UDP 10999 -> Container UDP 10999
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dst-master
     volumes:
-      # Mount the host directory for server configuration (.ini, token) and save files.
-      # This includes cluster.ini, cluster_token.txt, and MOST IMPORTANTLY modoverrides.lua
-      # for direct access from the host machine.
-      - ./dst_data:/home/steam/.klei
-
-      # Mount a named volume for Don't Starve Together server files (game engine, mods, etc.)
-      # to make them persistent. Even if the container is restarted or the image is updated,
-      # the downloaded server files and mods will be preserved.
-      - dst_server_data:/home/steam/dst_server
-    command: ["/home/steam/start_master.sh"] # Runs the script that starts the Master shard
-    tty: true # Allocates a pseudo-TTY (helpful for interactive console use)
-    stdin_open: true # Keeps stdin open
-    environment: # Required environment variables for the scripts to run properly
-      - STEAM_USER=steam
-      - DST_SERVER_DIR=/home/steam/dst_server
-      - DST_CLUSTER_NAME=MyDediServer # Must match the folder name inside ./dst_data
+      - ./dst_data/DoNotStarveTogether:/home/dst/.klei/DoNotStarveTogether
+      - dst-server:/home/dst/server
+    ports:
+      - "10999:10999/udp"
+      - "27018:27018/udp"
+      - "10889:10889/udp"
+    environment:
+      - SHARD_NAME=Master
+      - SERVER_PORT=10999
+      - MASTER_SERVER_PORT=27018
+      - AUTHENTICATION_PORT=8768
+      - IS_MASTER=true
+      - CLUSTER_NAME=MyDediServer
+    restart: unless-stopped
+    networks:
+      - dst-network
 
   dst-caves:
-    build: . # Uses the same image as the master
-    container_name: dst_caves_server
-    user: steam
-    restart: unless-stopped
-    ports:
-      - "11000:11000/udp" # Host UDP 11000 -> Container UDP 11000
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dst-caves
     volumes:
-      # Mount the SAME host directory for configuration and save files so both shards can share them.
-      - ./dst_data:/home/steam/.klei
-
-      # Mount the SAME named volume for server files.
-      - dst_server_data:/home/steam/dst_server
-    command: ["/home/steam/start_caves.sh"] # Runs the script that starts the Caves shard
-    depends_on: # Optional: waits for the master service to start (does not guarantee readiness)
+      - ./dst_data/DoNotStarveTogether:/home/dst/.klei/DoNotStarveTogether
+      - dst-server:/home/dst/server
+    ports:
+      - "11000:11000/udp"
+      - "27019:27019/udp"
+    environment:
+      - SHARD_NAME=Caves
+      - SERVER_PORT=11000
+      - MASTER_SERVER_PORT=27019
+      - AUTHENTICATION_PORT=8769
+      - IS_MASTER=false
+      - CLUSTER_NAME=MyDediServer
+    restart: unless-stopped
+    depends_on:
       - dst-master
-    tty: true
-    stdin_open: true
-    environment: # Required environment variables for the scripts to run properly
-      - STEAM_USER=steam
-      - DST_SERVER_DIR=/home/steam/dst_server
-      - DST_CLUSTER_NAME=MyDediServer # Must match the folder name inside ./dst_data
+    networks:
+      - dst-network
 
-# Named Volume Definition
-# This volume stores DST server files and downloaded mods under Docker's managed space.
-# Direct access from the host might be a bit harder, but this avoids permission issues
-# and ensures cleaner Docker management.
 volumes:
-  dst_server_data:
-    driver: local # Uses the default local driver
+  dst-server:
+
+networks:
+  dst-network:
+    driver: bridge
