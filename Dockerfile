@@ -1,83 +1,67 @@
-# Use a stable Ubuntu LTS release
 FROM ubuntu:22.04
 
-LABEL maintainer="Your Name <your.email@example.com>"
-LABEL description="Don't Starve Together Dedicated Server Image"
-
-ARG STEAM_USER=steam
-ARG DST_APP_ID=343050
-ARG DST_SERVER_DIR_BASE=/home/${STEAM_USER}
-ARG DST_SERVER_DIR=${DST_SERVER_DIR_BASE}/dst_server
-# Config/Save data will be mounted here from the host/volume
-ARG DST_CLUSTER_PARENT_DIR=${DST_SERVER_DIR_BASE}/.klei
-ARG DST_CLUSTER_NAME=MyDediServer
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Enable i386 architecture and install dependencies
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
+    libstdc++6:i386 \
+    libgcc1:i386 \
+    lib32stdc++6 \
     lib32gcc-s1 \
+    libc6-i386 \
+    libcurl4-gnutls-dev:i386 \
     screen \
-    libcurl3-gnutls \
-    && \
+    libcurl4 \
+    tar \
+    curl \
+    locales && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user to run the server
-RUN useradd -m ${STEAM_USER}
+# Set up locales
+RUN locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
 
-# --- SteamCMD Installation ---
-USER ${STEAM_USER}
-WORKDIR ${DST_SERVER_DIR_BASE}
+# Create a user for the server
+RUN useradd -m -s /bin/bash dst
+USER dst
+WORKDIR /home/dst
 
-RUN mkdir steamcmd && \
-    cd steamcmd && \
-    wget -qO- 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz' | tar zxf - && \
-    # Add a small wait/retry in case of CDN issues during build
-    ./steamcmd.sh +quit || (sleep 1 && ./steamcmd.sh +quit)
+# Create directories
+RUN mkdir -p /home/dst/server && \
+    mkdir -p /home/dst/.klei/DoNotStarveTogether && \
+    mkdir -p /home/dst/steamcmd
 
-# --- DST Server Installation ---
-# Create server directory owned by steam user BEFORE logging in anonymous
-RUN mkdir -p ${DST_SERVER_DIR}
+# Install SteamCMD
+RUN cd /home/dst/steamcmd && \
+    wget https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz && \
+    tar -xvzf steamcmd_linux.tar.gz && \
+    rm steamcmd_linux.tar.gz
 
-# Download/Update DST Dedicated Server
-# Use full paths to steamcmd.sh and specify install dir explicitly
-RUN ./steamcmd/steamcmd.sh \
-    +force_install_dir ${DST_SERVER_DIR} \
-    +login anonymous \
-    +app_update ${DST_APP_ID} validate \
-    +quit || \
-    # Retry logic
-    ( \
-    echo "SteamCMD download failed, retrying..." && \
-    sleep 5 && \
-    ./steamcmd/steamcmd.sh \
-        +force_install_dir ${DST_SERVER_DIR} \
-        +login anonymous \
-        +app_update ${DST_APP_ID} validate \
-        +quit \
-    )
+# Install DST Dedicated Server
+RUN /home/dst/steamcmd/steamcmd.sh +force_install_dir /home/dst/server +login anonymous +app_update 343050 validate +quit
 
-# --- Configuration & Runtime Setup ---
-# Copy start scripts into the image
-COPY --chown=${STEAM_USER}:${STEAM_USER} start_master.sh start_caves.sh ${DST_SERVER_DIR_BASE}/
-RUN chmod +x ${DST_SERVER_DIR_BASE}/start_master.sh ${DST_SERVER_DIR_BASE}/start_caves.sh
+# Set volumes for persisting data
+VOLUME ["/home/dst/.klei/DoNotStarveTogether"]
 
-# Create the expected parent directory for the cluster data mount point
-# The actual cluster data (MyDediServer) will be mounted from the host
-RUN mkdir -p ${DST_CLUSTER_PARENT_DIR} && chown ${STEAM_USER}:${STEAM_USER} ${DST_CLUSTER_PARENT_DIR}
+# Default environment variables
+ENV SHARD_NAME="unknown" \
+    SERVER_PORT="10999" \
+    MASTER_SERVER_PORT="27018" \
+    AUTHENTICATION_PORT="8768" \
+    IS_MASTER="true" \
+    CLUSTER_NAME="MyDediServer"
 
-# Set the working directory for the final command execution
-WORKDIR ${DST_SERVER_DIR_BASE}
+# Create the startup script
+RUN echo '#!/bin/bash \n\
+cd /home/dst/server/bin \n\
+\n\
+# Start the server \n\
+./dontstarve_dedicated_server_nullrenderer -console -cluster ${CLUSTER_NAME} -shard ${SHARD_NAME}' > /home/dst/start_dst.sh && \
+    chmod +x /home/dst/start_dst.sh
 
-# Ports the server listens on (UDP)
-EXPOSE 10999/udp
-EXPOSE 11000/udp
-
-# Default user
-USER ${STEAM_USER}
-
-# Default command (will be overridden by docker-compose)
-CMD ["bash"]
+# Set entrypoint
+ENTRYPOINT ["/home/dst/start_dst.sh"]
