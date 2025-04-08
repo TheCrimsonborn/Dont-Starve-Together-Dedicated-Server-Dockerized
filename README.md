@@ -18,8 +18,12 @@ dst-dedicated-docker-server/
         └── MyDediServer/
             ├── cluster.ini
             ├── cluster_token.txt
-            ├── server.ini
-            └── worldgenoverride.lua
+            ├── Master/
+            │   ├── server.ini
+            │   └── worldgenoverride.lua
+            └── Caves/
+                ├── server.ini
+                └── worldgenoverride.lua
 ```
 
 ---
