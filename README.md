@@ -3,12 +3,15 @@
 
 This repository provides a fully containerized setup for hosting a Don't Starve Together (DST) dedicated server using Docker and Docker Compose. It includes both `Master` and `Caves` shards in separate containers with shared configuration volumes.
 
+**GitHub Repository:**  
+👉 https://github.com/TheCrimsonborn/Dont-Starve-Together-Dedicated-Server-Dockerized
+
 ---
 
 ## 📦 Folder Structure
 
 ```
-dst-dedicated-docker-server/
+Dont-Starve-Together-Dedicated-Server-Dockerized/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── start_master.sh
@@ -33,8 +36,8 @@ dst-dedicated-docker-server/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/dst-dedicated-docker-server.git
-cd dst-dedicated-docker-server
+git clone https://github.com/TheCrimsonborn/Dont-Starve-Together-Dedicated-Server-Dockerized.git
+cd Dont-Starve-Together-Dedicated-Server-Dockerized
 ```
 
 ### 2. Configure and download the server settings from Klei
@@ -60,9 +63,10 @@ Before starting the server, you need to generate and download a valid server con
 
 Make sure it includes:
 - `cluster.ini`
-- `server.ini`
-- `cluster_token.txt`
-- `worldgenoverride.lua`
+- `Master/server.ini` and `Master/worldgenoverride.lua`
+- `Caves/server.ini` and `Caves/worldgenoverride.lua`
+
+> **Note:** `cluster_token.txt` is optional. Without it, the server will only be accessible on LAN and not over the internet.
 
 ---
 
@@ -86,13 +90,10 @@ This will:
 Contains global cluster settings like game mode, player limits, and network info.
 
 ### server.ini
-Each shard (Master and Caves) uses a separate `server.ini` with its own ports.
+Each shard (Master and Caves) uses its own `server.ini` with specific ports.
 
 ### worldgenoverride.lua
 Controls the world generation presets (e.g., SURVIVAL_TOGETHER, DST_CAVE).
-
-### cluster_token.txt
-Contains your Klei token for hosting online games.
 
 ---
 
@@ -112,7 +113,6 @@ docker compose down
 - A Linux server
 - Docker
 - Docker Compose
-- A valid `cluster_token.txt` from your Klei account
 
 ---
 
