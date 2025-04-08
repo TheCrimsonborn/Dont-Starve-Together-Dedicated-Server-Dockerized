@@ -20,8 +20,8 @@ RUN apt-get update && \
     wget \
     ca-certificates \
     lib32gcc-s1 \
-    # screen can be useful for debugging inside container if needed, optional
-    # screen \
+    screen \
+    libcurl3-gnutls \
     && \
     rm -rf /var/lib/apt/lists/*
 
